@@ -75,8 +75,25 @@ def main():
                     else:
                         finger_status.insert(0, 0)  # Thumb closed
 
+                    # Determine hand's handedness
+                    hand_label = hand_handedness.classification[0].label  # 'Left' or 'Right'
+
+                    # Determine hand's orientation
+                    thumb_cmc = lmList[1]
+                    thumb_vec = [thumb_cmc[1] - wrist[1], thumb_cmc[2] - wrist[2]]
+                    pinky_vec = [pinky_mcp[1] - wrist[1], pinky_mcp[2] - wrist[2]]
+                    cross_product = thumb_vec[0] * pinky_vec[1] - thumb_vec[1] * pinky_vec[0]
+                    orientation = 0 if (hand_label == 'Left' and cross_product > 0) or (hand_label == 'Right' and cross_product < 0) else 1
+
                     # ##############################################
-                    print(finger_status)
+                    if finger_status == [0, 1, 1, 0, 0]:  # peace
+                        print("peace")
+                    elif finger_status[1:5] == [1, 0, 0, 1]:  # rock & roll
+                        print("rock&roll")
+                    elif finger_status[1:5] == [0, 1, 0, 0] and orientation == 0:  # middle finger
+                        print("middle")
+                    else:
+                        print("unrecognized")
 
                 mp_draw.draw_landmarks(image, hand_landmark, mp_hand.HAND_CONNECTIONS)        
 
