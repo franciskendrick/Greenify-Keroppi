@@ -1,6 +1,7 @@
 import cv2
 import math
 import mediapipe as mp
+from collections import deque
 from cvfpscalc import CvFpsCalc
 
 
@@ -33,7 +34,10 @@ def main():
     )
     
     video = cv2.VideoCapture(0)
-    cvFpsCalc = CvFpsCalc(buffer_len=10)
+    cvFpsCalc = CvFpsCalc(buffer_len=20)
+
+    # Queue to store middle finger MCP positions for wave detection
+    mcp_positions = deque(maxlen=10)
     
     while True:
         fps = cvFpsCalc.get()
@@ -60,6 +64,7 @@ def main():
                     finger_tips = [lmList[8], lmList[12], lmList[16], lmList[20]]
                     wrist = lmList[0]
                     pinky_mcp = lmList[17]
+                    middle_mcp = lmList[9]
 
                     # Determine finger status (open or closed)
                     finger_status = []
@@ -82,12 +87,12 @@ def main():
                     # Determine hand's handedness #################################################
                     hand_label = hand_handedness.classification[0].label  # 'Left' or 'Right'
 
-                    # Determine hand's orientation ################################################
+                    # Determine hand's orientation (0 = backhand, 1 = palm) #######################
                     thumb_cmc = lmList[1]
                     thumb_vec = [thumb_cmc[1] - wrist[1], thumb_cmc[2] - wrist[2]]
                     pinky_vec = [pinky_mcp[1] - wrist[1], pinky_mcp[2] - wrist[2]]
                     cross_product = thumb_vec[0] * pinky_vec[1] - thumb_vec[1] * pinky_vec[0]
-                    orientation = 0 if (hand_label == 'Left' and cross_product > 0) or (hand_label == 'Right' and cross_product < 0) else 1
+                    orientation = 0 if (hand_label == 'Left' and cross_product > 0) or (hand_label == 'Right' and cross_product < 0) else 1  
 
                     # Determine hand's angle ######################################################
                     index_mcp = lmList[5]
@@ -98,31 +103,29 @@ def main():
                     angle = calculate_angle(index_mcp_coords, pinky_mcp_coords)
                     mapped_angle = int(map_value(angle, 0, 360, 0, 12)) * 30
 
-                    # Adjust the angle based on handedness and orientation
-                    if (hand_label == "Left" and orientation == "Palm") or (
-                            hand_label == "Right" and orientation == "Backhand"):
-                        adjusted_angle = (mapped_angle + 180) % 360
-                    else:
-                        adjusted_angle = mapped_angle
-
                     # Detect gestures #############################################################
+                    gesture_detected = "unrecognized"
                     if finger_status == [0, 1, 1, 0, 0]:  # peace
-                        print("peace")
+                        gesture_detected = "peace"
                     elif finger_status[1:5] == [1, 0, 0, 1]:  # rock & roll
-                        print("rock&roll")
+                        gesture_detected = "rock&roll"
                     elif finger_status[1:5] == [0, 1, 0, 0] and orientation == 0:  # middle finger
-                        print("middle")
+                        gesture_detected = "middle"
 
-                    elif finger_status == [1, 0, 0, 0, 0]:
-                        if adjusted_angle in [30, 60, 90]:
-                            print("thumbs up")
-                        elif adjusted_angle in [300, 270, 240]:
-                            print("thumbs down")
-                        else:
-                            print("unrecognized")
+                    elif finger_status == [1, 0, 0, 0, 0]:  # thumbs up & thumbs down
+                        if mapped_angle in [30, 60, 90]:
+                            gesture_detected = "thumbs up"
+                        elif mapped_angle in [300, 270, 240]:
+                            gesture_detected = "thumbs down"
+
+                    elif finger_status[1:5] == [1, 1, 1, 1] and orientation == 1:
+                        mcp_positions.append(middle_mcp[1])
+                        if len(mcp_positions) == mcp_positions.maxlen:
+                            diffs = [abs(mcp_positions[i] - mcp_positions[i + 1]) for i in range(len(mcp_positions) - 1)]
+                            if sum(diffs) > 150:  # Adjust the threshold as needed
+                                gesture_detected = "waving"
                         
-                    else:
-                        print("unrecognized")
+                    print(gesture_detected)
 
                 mp_draw.draw_landmarks(image, hand_landmark, mp_hand.HAND_CONNECTIONS)        
 
