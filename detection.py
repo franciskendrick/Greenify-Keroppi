@@ -37,7 +37,7 @@ def main():
     cvFpsCalc = CvFpsCalc(buffer_len=20)
 
     # Queue to store middle finger MCP positions for wave detection
-    mcp_positions = deque(maxlen=10)
+    mcp_positions = deque(maxlen=10)  # Adjust the length as needed
     
     while True:
         fps = cvFpsCalc.get()
@@ -105,10 +105,23 @@ def main():
 
                     # Detect gestures #############################################################
                     gesture_detected = "unrecognized"
-                    if finger_status == [0, 1, 1, 0, 0]:  # peace
-                        gesture_detected = "peace"
+                    
+                    index_middle_distance = calculate_distance(
+                        (lmList[8][1], lmList[8][2]), 
+                        (lmList[12][1], lmList[12][2]))
+                    peacesign_threshold = 50
+                    waving_threshold = 150
+
+                    if finger_status == [1, 0, 0, 0, 1]:  # eyy
+                        gesture_detected = "eyy"
+                    elif finger_status == [0, 0, 0, 1, 1]:  # 2 joints
+                        gesture_detected = "2joints"
+
                     elif finger_status[1:5] == [1, 0, 0, 1]:  # rock & roll
                         gesture_detected = "rock&roll"
+                    
+                    elif finger_status == [0, 1, 1, 0, 0] and index_middle_distance > peacesign_threshold:  # peace
+                        gesture_detected = "peace"
                     elif finger_status[1:5] == [0, 1, 0, 0] and orientation == 0:  # middle finger
                         gesture_detected = "middle"
 
@@ -118,13 +131,13 @@ def main():
                         elif mapped_angle in [300, 270, 240]:
                             gesture_detected = "thumbs down"
 
-                    elif finger_status[1:5] == [1, 1, 1, 1] and orientation == 1:
+                    elif finger_status[1:5] == [1, 1, 1, 1] and orientation == 1:  # wave
                         mcp_positions.append(middle_mcp[1])
                         if len(mcp_positions) == mcp_positions.maxlen:
                             diffs = [abs(mcp_positions[i] - mcp_positions[i + 1]) for i in range(len(mcp_positions) - 1)]
-                            if sum(diffs) > 150:  # Adjust the threshold as needed
+                            if sum(diffs) > waving_threshold:
                                 gesture_detected = "waving"
-                        
+
                     print(gesture_detected)
 
                 mp_draw.draw_landmarks(image, hand_landmark, mp_hand.HAND_CONNECTIONS)        
