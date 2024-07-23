@@ -28,7 +28,7 @@ def main():
     
     hands = mp_hand.Hands(
         static_image_mode=False,
-        max_num_hands=1,
+        max_num_hands=3,
         min_detection_confidence=0.7,
         min_tracking_confidence=0.5,
     )
@@ -36,9 +36,9 @@ def main():
     video = cv2.VideoCapture(0)
     cvFpsCalc = CvFpsCalc(buffer_len=20)
 
-    # Queue to store middle finger MCP positions for wave detection
-    mcp_positions = deque(maxlen=10)  # Adjust the length as needed
-    
+    # Dictionary to store middle finger MCP positions for wave detection for each hand
+    mcp_positions_dict = {}
+
     while True:
         fps = cvFpsCalc.get()
 
@@ -50,8 +50,10 @@ def main():
         image.flags.writeable = True
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
+        gestures = [] 
+
         if results.multi_hand_landmarks:
-            for hand_landmark, hand_handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
+            for idx, (hand_landmark, hand_handedness) in enumerate(zip(results.multi_hand_landmarks, results.multi_handedness)):
                 lmList = []
                 for id, lm in enumerate(hand_landmark.landmark):
                     h, w, c = image.shape
@@ -59,6 +61,10 @@ def main():
                     lmList.append([id, cx, cy])
                 
                 if lmList:
+                    # Initialize deque for the current hand if not already present
+                    if idx not in mcp_positions_dict:
+                        mcp_positions_dict[idx] = deque(maxlen=10)
+                    
                     # Determine fingers' status ###################################################
                     thumb_tip = lmList[4]
                     finger_tips = [lmList[8], lmList[12], lmList[16], lmList[20]]
@@ -85,14 +91,14 @@ def main():
                         finger_status.insert(0, 0)  # Thumb closed
 
                     # Determine hand's handedness #################################################
-                    hand_label = hand_handedness.classification[0].label  # 'Left' or 'Right'
+                    hand_label = hand_handedness.classification[0].index  # 0 = left, 1 = right
 
                     # Determine hand's orientation (0 = backhand, 1 = palm) #######################
                     thumb_cmc = lmList[1]
                     thumb_vec = [thumb_cmc[1] - wrist[1], thumb_cmc[2] - wrist[2]]
                     pinky_vec = [pinky_mcp[1] - wrist[1], pinky_mcp[2] - wrist[2]]
                     cross_product = thumb_vec[0] * pinky_vec[1] - thumb_vec[1] * pinky_vec[0]
-                    orientation = 0 if (hand_label == 'Left' and cross_product > 0) or (hand_label == 'Right' and cross_product < 0) else 1  
+                    orientation = 0 if (hand_label == 0 and cross_product > 0) or (hand_label == 1 and cross_product < 0) else 1  
 
                     # Determine hand's angle ######################################################
                     index_mcp = lmList[5]
@@ -113,34 +119,34 @@ def main():
                     waving_threshold = 150
 
                     if finger_status == [1, 0, 0, 0, 1]:  # eyy
-                        gesture_detected = "eyy"
+                        gesture_detected = 0
                     elif finger_status == [0, 0, 0, 1, 1]:  # 2 joints
-                        gesture_detected = "2joints"
+                        gesture_detected = 1
 
                     elif finger_status[1:5] == [1, 0, 0, 1]:  # rock & roll
-                        gesture_detected = "rock&roll"
+                        gesture_detected = 2
                     
                     elif finger_status == [0, 1, 1, 0, 0] and index_middle_distance > peacesign_threshold:  # peace
-                        gesture_detected = "peace"
+                        gesture_detected = 3
                     elif finger_status[1:5] == [0, 1, 0, 0] and orientation == 0:  # middle finger
-                        gesture_detected = "middle"
+                        gesture_detected = 4
 
                     elif finger_status == [1, 0, 0, 0, 0]:  # thumbs up & thumbs down
                         if mapped_angle in [30, 60, 90]:
-                            gesture_detected = "thumbs up"
+                            gesture_detected = 5
                         elif mapped_angle in [300, 270, 240]:
-                            gesture_detected = "thumbs down"
+                            gesture_detected = 6
 
                     elif finger_status[1:5] == [1, 1, 1, 1] and orientation == 1:  # wave
-                        mcp_positions.append(middle_mcp[1])
-                        if len(mcp_positions) == mcp_positions.maxlen:
-                            diffs = [abs(mcp_positions[i] - mcp_positions[i + 1]) for i in range(len(mcp_positions) - 1)]
+                        mcp_positions_dict[idx].append(middle_mcp[1])
+                        if len(mcp_positions_dict[idx]) == mcp_positions_dict[idx].maxlen:
+                            diffs = [abs(mcp_positions_dict[idx][i] - mcp_positions_dict[idx][i + 1]) for i in range(len(mcp_positions_dict[idx]) - 1)]
                             if sum(diffs) > waving_threshold:
-                                gesture_detected = "waving"
+                                gesture_detected = 7
 
-                    print(gesture_detected)
+                    gestures.append(gesture_detected)
 
-                mp_draw.draw_landmarks(image, hand_landmark, mp_hand.HAND_CONNECTIONS)        
+                mp_draw.draw_landmarks(image, hand_landmark, mp_hand.HAND_CONNECTIONS)
 
         cv2.putText(image, f"FPS: {fps}", (10, 30), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 100, 100), 2, cv2.LINE_AA)
 
