@@ -28,12 +28,22 @@ def main():
     
     hands = mp_hand.Hands(
         static_image_mode=False,
-        max_num_hands=3,
+        max_num_hands=1,
         min_detection_confidence=0.7,
         min_tracking_confidence=0.5,
     )
     
+    # Video
     video = cv2.VideoCapture(0)
+
+    # Fullscreen !!!
+    # video.set(cv2.CAP_PROP_FRAME_WIDTH, 1366)
+    # video.set(cv2.CAP_PROP_FRAME_HEIGHT, 768)
+    
+    # cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
+    # cv2.setWindowProperty("Frame", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+    # Get FPS
     cvFpsCalc = CvFpsCalc(buffer_len=20)
 
     # Dictionary to store middle finger MCP positions for wave detection for each hand
@@ -90,6 +100,8 @@ def main():
                     else:
                         finger_status.insert(0, 0)  # Thumb closed
 
+                    # print(finger_status)  # !!!
+
                     # Determine hand's handedness #################################################
                     hand_label = hand_handedness.classification[0].index  # 0 = left, 1 = right
 
@@ -145,8 +157,8 @@ def main():
                                 gesture_detected = 7
 
                     gestures.append(gesture_detected)
-
                 mp_draw.draw_landmarks(image, hand_landmark, mp_hand.HAND_CONNECTIONS)
+            # print(gestures)  # !!!
 
         cv2.putText(image, f"FPS: {fps}", (10, 30), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 100, 100), 2, cv2.LINE_AA)
 
