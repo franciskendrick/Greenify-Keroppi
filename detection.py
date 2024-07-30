@@ -118,7 +118,7 @@ def main():
                     for _, tip in enumerate(finger_tips):
                         dist = calculate_distance((wrist[1], wrist[2]), (tip[1], tip[2]))
                         # Threshold for other fingers
-                        if dist > 130:
+                        if dist > 60:  # 130
                             finger_status.append(1)  # Finger open
                         else:
                             finger_status.append(0)  # Finger closed
@@ -126,7 +126,7 @@ def main():
                     # Check the thumb separately
                     thumb_dist = calculate_distance((pinky_mcp[1], pinky_mcp[2]), (thumb_tip[1], thumb_tip[2]))
                     # Threshold for thumb
-                    if thumb_dist > 110:
+                    if thumb_dist > 55:  # 110
                         finger_status.insert(0, 1)  # Thumb open
                     else:
                         finger_status.insert(0, 0)  # Thumb closed
@@ -158,8 +158,8 @@ def main():
                     index_middle_distance = calculate_distance(
                         (lmList[8][1], lmList[8][2]), 
                         (lmList[12][1], lmList[12][2]))
-                    peacesign_threshold = 50
-                    waving_threshold = 150
+                    peacesign_threshold = 25  # 50
+                    waving_threshold = 75  # 150
 
                     if finger_status == [1, 0, 0, 0, 1]:  # eyy
                         gesture_detected = 1
@@ -191,7 +191,6 @@ def main():
                 mp_draw.draw_landmarks(image, hand_landmark, mp_hand.HAND_CONNECTIONS)
             print(gestures)  # !!!
 
-            # Play Sound ##########################################################################
             # 1 eyy
             # 2 2joints
             # 3 rock&roll
@@ -201,6 +200,7 @@ def main():
             # 7 thumbs down
             # 8 waving
 
+            # Play Sound ##########################################################################
             currenttime = time.time()
             sound_files = gesture_to_sound[gesture_names[gesture_detected]]
             if len(sound_files) > 0:  # !!!
