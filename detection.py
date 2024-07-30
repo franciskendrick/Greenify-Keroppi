@@ -4,7 +4,7 @@ import time
 import cv2
 import random
 import mediapipe as mp
-from collections import deque
+from collections import Counter, deque
 from cvfpscalc import CvFpsCalc
 import pygame
 
@@ -41,13 +41,31 @@ def play_sound(file_path):
     pygame.mixer.music.play()
 
 
+def process_gestures(gestures):
+    if all(x == 0 for x in gestures):
+        return 0
+    
+    filtered_gestures = [x for x in gestures if x != 0]
+    
+    if len(filtered_gestures) == 0:
+        return 0
+    
+    count = Counter(filtered_gestures)
+    most_common = count.most_common(1)[0]
+    
+    if len(count) > 1 and count.most_common(2)[0][1] == count.most_common(2)[1][1]:
+        return random.choice(filtered_gestures)
+    
+    return most_common[0]
+
+
 def main():
     mp_draw = mp.solutions.drawing_utils
     mp_hand = mp.solutions.hands
     
     hands = mp_hand.Hands(
         static_image_mode=False,
-        max_num_hands=1,
+        max_num_hands=2,
         min_detection_confidence=0.7,
         min_tracking_confidence=0.5,
     )
@@ -189,7 +207,8 @@ def main():
 
                     gestures.append(gesture_detected)
                 mp_draw.draw_landmarks(image, hand_landmark, mp_hand.HAND_CONNECTIONS)
-            print(gestures)  # !!!
+            gesture = process_gestures(gestures)
+            print(gesture)  # !!!
 
             # 1 eyy
             # 2 2joints
@@ -223,6 +242,7 @@ def main():
 
     video.release()
     cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     main()
